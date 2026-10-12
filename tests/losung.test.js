@@ -335,7 +335,7 @@ test("helper ignores requests without a valid date", async () => {
 	assert.equal(calls, 0);
 });
 
-function loadFrontend(now = "2026-10-03T12:00:00") {
+function loadFrontend(now = "2026-10-03T12:00:00", config = {}) {
 	let definition;
 	const document = new JSDOM("<!doctype html>").window.document;
 	const FakeDate = class extends Date {
@@ -358,7 +358,7 @@ function loadFrontend(now = "2026-10-03T12:00:00") {
 	});
 	const frontend = Object.assign(Object.create(definition), {
 		name: "MMM-Losung",
-		config: { ...definition.defaults },
+		config: { ...definition.defaults, ...config },
 		requests: [],
 		domUpdates: 0,
 		updateDom() { this.domUpdates++; },
@@ -421,6 +421,31 @@ test("frontend names a missing year and a missing day", () => {
 	assert.equal(frontend.getDom().textContent, "Für heute gibt es keine Losung.");
 });
 
+test("frontend shows loading and errors as a small status line in the normal color", () => {
+	const { frontend } = loadFrontend();
+	let dom = frontend.getDom();
+	// The same size as the texts, and not dimmed: the line keeps its color
+	assert.deepEqual([...dom.classList], ["moravian-container", "small"]);
+	assert.equal(dom.textContent, "Losung wird geladen ...");
+	frontend.socketNotificationReceived("Error", { date: "2026-10-03", reason: "failed" });
+	dom = frontend.getDom();
+	assert.deepEqual([...dom.classList], ["moravian-container", "small"]);
+	assert.equal(dom.textContent, "Losung konnte nicht geladen werden.");
+});
+
+test("frontend shows the texts bright and light, the references in the normal color", () => {
+	const { frontend } = loadFrontend();
+	frontend.socketNotificationReceived("Losung", losungOf("2026-10-03"));
+	const dom = frontend.getDom();
+	assert.deepEqual([...dom.classList], ["moravian-container", "small"]);
+	assert.deepEqual([...dom.children].map((element) => element.className), ["moravian-moravian light", "moravian-teaching light"]);
+	assert.deepEqual([...dom.querySelectorAll(".bright")].map((element) => [element.className, element.textContent]), [["moravian-text bright", "Testlosung"], ["teaching-text bright", "Testlehrtext"]]);
+	assert.deepEqual([...dom.querySelectorAll(".moravian-vers, .teaching-vers")].map((element) => [element.className, element.textContent]), [["moravian-vers", "Psalm 1,1"], ["teaching-vers", "Matthaeus 1,1"]]);
+	// No labels such as "Losung:", the header of the module names it
+	assert.equal(dom.querySelector(".moravian-header"), null);
+	assert.equal(dom.querySelector("[style]"), null);
+});
+
 test("frontend shows the introduction of a quotation in the normal color and keeps emphasis", () => {
 	const { frontend } = loadFrontend();
 	const lehrtext = { text: "/Paulus sprach:/ Ein erfundener Satz und ein #betontes# Wort.", reference: "Apostelgeschichte 17,23" };
@@ -439,6 +464,17 @@ test("frontend shows the texts as plain text", () => {
 	assert.equal(dom.querySelector(".moravian-text").textContent, "<img src=x onerror=alert(1)> & Text");
 });
 
+test("frontend shows only the selected texts", () => {
+	for (const [config, expected] of [[{ showDailyText: false }, ["Testlehrtext"]], [{ showTeachingText: false }, ["Testlosung"]]]) {
+		const { frontend } = loadFrontend(undefined, config);
+		frontend.socketNotificationReceived("Losung", losungOf("2026-10-03"));
+		const dom = frontend.getDom();
+		// A text that is switched off is not rendered at all
+		assert.equal(dom.children.length, 1);
+		assert.deepEqual([...dom.querySelectorAll(".bright")].map((element) => element.textContent), expected);
+	}
+});
+
 test("frontend warns in December while the next year is missing", () => {
 	const { frontend } = loadFrontend("2026-12-01T08:00:00");
 	frontend.socketNotificationReceived("Losung", losungOf("2026-12-01", { nextYearMissing: 2027 }));
@@ -447,4 +483,11 @@ test("frontend warns in December while the next year is missing", () => {
 	frontend.socketNotificationReceived("Losung", losungOf("2026-12-01"));
 	assert.equal(frontend.domUpdates, 2);
 	assert.equal(frontend.getDom().querySelector(".moravian-warning"), null);
+});
+
+test("stylesheet leaves fonts, sizes, colors and alignment to MagicMirror", () => {
+	const css = fs.readFileSync(path.join(moduleDirectory, "MMM-Losung.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+	assert.doesNotMatch(css, /font|color|text-align|line-height|opacity/);
+	// Rules on .MMM-Losung alone would also change the header of the module
+	assert.doesNotMatch(css, /(^|})\s*\.MMM-Losung\s*[{,]/);
 });

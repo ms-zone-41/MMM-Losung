@@ -47,29 +47,17 @@ Module.register("MMM-Losung", {
 	getDom: function () {
 		let self = this;
 		let wrapper = document.createElement("div");
-		wrapper.classList.add("moravian-container");
+		// Size, colors and fonts come from the classes of MagicMirror
+		wrapper.className = "moravian-container small";
 
 		if ((self.DailyVerse === null || self.DailyVerse === undefined)
 			&& (self.DailyTeachingText === null || self.DailyTeachingText === undefined))
 			wrapper.textContent = self.error || "Losung wird geladen ...";
 		else {
-			const dailyTextElement = self._createElement(["Losung:", self.DailyVerse.text, self.DailyVerse.reference], "moravian");
-			wrapper.appendChild(dailyTextElement);
-			const teachingTextElement = self._createElement(["Lehrtext:", self.DailyTeachingText.text, self.DailyTeachingText.reference], "teaching");
-			wrapper.appendChild(teachingTextElement);
-
-			if (dailyTextElement !== undefined && teachingTextElement !== undefined) {
-				dailyTextElement.style.display = self.config.showDailyText ? "block" : "none";
-
-				if (self.config.showTeachingText) {
-					teachingTextElement.style.display = "block";
-				} else {
-					teachingTextElement.style.display = "none";
-					dailyTextElement.classList.remove("moravian-moravian");
-					// console.log(dailyTextElement.classList)
-				}
-			}
-
+			if (self.config.showDailyText)
+				wrapper.appendChild(self._createElement(self.DailyVerse, "moravian"));
+			if (self.config.showTeachingText)
+				wrapper.appendChild(self._createElement(self.DailyTeachingText, "teaching"));
 			// A problem that needs attention before New Year
 			if (self.nextYearMissing) {
 				let warning = document.createElement("div");
@@ -81,20 +69,24 @@ Module.register("MMM-Losung", {
 		return wrapper;
 	},
 
-	_createElement(texts, clases) {
+	/**
+	 * A text with its reference below. Running text is light, like the
+	 * news and alerts of MagicMirror; the text is bright, the reference
+	 * has the normal color.
+	 * @param {{text: string, reference: string}} verse The text and the reference
+	 * @param {string} clases The prefix of the class names
+	 * @returns {HTMLElement} The element
+	 */
+	_createElement(verse, clases) {
 		let element = document.createElement("div");
-		let elementHeader = document.createElement("div");
 		let elementText = document.createElement("div");
 		let elementVers = document.createElement("div");
-		element.classList.add(`moravian-${clases}`);
-		elementHeader.classList.add(`moravian-header`);
-		elementText.classList.add(`${clases}-text`);
+		element.classList.add(`moravian-${clases}`, "light");
+		elementText.classList.add(`${clases}-text`, "bright");
 		elementVers.classList.add(`${clases}-vers`);
-		elementHeader.textContent = texts[0];
-		this._appendText(elementText, texts[1], clases);
-		elementVers.textContent = texts[2];
+		this._appendText(elementText, verse.text, clases);
+		elementVers.textContent = verse.reference;
 
-		element.appendChild(elementHeader);
 		element.appendChild(elementText);
 		element.appendChild(elementVers);
 

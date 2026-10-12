@@ -22,6 +22,7 @@ To use this module, add the following configuration block to the modules array i
     {
       module: "MMM-Losung",
       position: "top_bar",
+      header: "Losung des Tages",
       config: {
         updateInterval: 10 * 60 * 1000,
         showDailyText: true,
