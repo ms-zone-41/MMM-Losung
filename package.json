@@ -1,7 +1,4 @@
 {
-  "dependencies": {
-	"node-fetch": "^2.6.5"
-  },
   "name": "mmm-losung",
   "description": "This is a module for the [MagicMirror²](https://github.com/MichMich/MagicMirror/). It will display the daily verse of the day from  www.losungen.de (direct link: https://www.losungen.de/download/). You have to download the *.xml file from their website and place that *.xml file in the root folder of the module.",
   "version": "1.0.0",
@@ -27,6 +24,7 @@
     "@stylistic/eslint-plugin": "^5.10.0",
     "eslint": "^10.12.0",
     "eslint-plugin-package-json": "^1.10.1",
-    "globals": "^17.13.0"
+    "globals": "^17.13.0",
+    "jsdom": "^30.1.1"
   }
 }

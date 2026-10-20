@@ -1,6 +1,6 @@
 Module.register("MMM-Losung", {
 	defaults: {
-		updateInterval: 10000, // 3 * 1000 -> 60s
+		updateInterval: 10 * 60 * 1000, // 10 minutes
 		showDailyText: true,
 		showTeachingText: true
 	},
@@ -12,12 +12,15 @@ Module.register("MMM-Losung", {
 		let self = this;
 		Log.info("Starting module!: " + self.name + ", identifier: " + self.identifier);
 
+		self.DailyVerse = null;
+		self.DailyTeachingText = null;
+		self.nextYearMissing = null;
+		self.loadedDate = null;
+		self.error = null;
 		self.getData(self);
-		self.getDom();
+		// The display is updated when the helper answers
 		setInterval(function () {
-			self.updateDom();
 			self.getData(self);
-			// self.updateDailyMoravianFromXML();
 		}, self.config.updateInterval);
 	},
 
@@ -29,29 +32,16 @@ Module.register("MMM-Losung", {
 		return [];
 	},
 
-	/*
-	 * getData
-	 * function example return data and show it in the module wrapper
-	 * get a URL request
-	 *
+	/**
+	 * Asks the helper for the texts of the local day of the mirror. The
+	 * loaded texts stay visible until the answer arrives.
+	 * @param {object} self The module
 	 */
 	getData: function (self) {
-		self.MoravianData = null;
-		self.DailyMoravian = null;
-
-		self.DailyVerse = null;
-		self.DailyTeachingText = null;
-
 		const actDate = new Date();
-
-		// Set URL for web request
-		// const url = 'https://www.losungen.de/fileadmin/media-losungen/heute/2021/0605.html';
-		const day = actDate.getDate() < 10 ? `0${actDate.getDate().toString()}` : actDate.getDate().toString();
-		const month = (actDate.getMonth() + 1) < 10 ? `0${(actDate.getMonth() + 1).toString()}` : (actDate.getMonth() + 1).toString();
-
-		const url = `https://www.losungen.de/fileadmin/media-losungen/heute/${actDate.getFullYear()}/${month}${day}.html`;
-		// console.log("url", url)
-		self.sendSocketNotification("GetDataFromWeb", url);
+		const pad = (number) => String(number).padStart(2, "0");
+		self.requestedDate = `${actDate.getFullYear()}-${pad(actDate.getMonth() + 1)}-${pad(actDate.getDate())}`;
+		self.sendSocketNotification("GetLosung", { date: self.requestedDate });
 	},
 
 	getDom: function () {
@@ -61,11 +51,11 @@ Module.register("MMM-Losung", {
 
 		if ((self.DailyVerse === null || self.DailyVerse === undefined)
 			&& (self.DailyTeachingText === null || self.DailyTeachingText === undefined))
-			wrapper.innerHTML = "Data get loaded";
+			wrapper.textContent = self.error || "Losung wird geladen ...";
 		else {
-			const dailyTextElement = self._createElement(["Losung:", self.DailyVerse[0], self.DailyVerse[1]], "moravian");
+			const dailyTextElement = self._createElement(["Losung:", self.DailyVerse.text, self.DailyVerse.reference], "moravian");
 			wrapper.appendChild(dailyTextElement);
-			const teachingTextElement = self._createElement(["Lehrtext:", self.DailyTeachingText[0], self.DailyTeachingText[1]], "teaching");
+			const teachingTextElement = self._createElement(["Lehrtext:", self.DailyTeachingText.text, self.DailyTeachingText.reference], "teaching");
 			wrapper.appendChild(teachingTextElement);
 
 			if (dailyTextElement !== undefined && teachingTextElement !== undefined) {
@@ -80,7 +70,13 @@ Module.register("MMM-Losung", {
 				}
 			}
 
-			// console.log(self.config.showDailyText, self.config.showTeachingText)
+			// A problem that needs attention before New Year
+			if (self.nextYearMissing) {
+				let warning = document.createElement("div");
+				warning.className = "moravian-warning xsmall dimmed";
+				warning.textContent = `Die Losungen für ${self.nextYearMissing} fehlen noch.`;
+				wrapper.appendChild(warning);
+			}
 		}
 		return wrapper;
 	},
@@ -94,9 +90,9 @@ Module.register("MMM-Losung", {
 		elementHeader.classList.add(`moravian-header`);
 		elementText.classList.add(`${clases}-text`);
 		elementVers.classList.add(`${clases}-vers`);
-		elementHeader.innerHTML = texts[0];
-		elementText.innerHTML = texts[1];
-		elementVers.innerHTML = texts[2];
+		elementHeader.textContent = texts[0];
+		this._appendText(elementText, texts[1], clases);
+		elementVers.textContent = texts[2];
 
 		element.appendChild(elementHeader);
 		element.appendChild(elementText);
@@ -105,20 +101,60 @@ Module.register("MMM-Losung", {
 		return element;
 	},
 
-	socketNotificationReceived: function (notification, payload) {
-		// console.log(this.name, notification, payload)
-		let self = this;
-		if (notification === "Error")
-			console.error(self.name, "Error in helper Module", payload);
-		else if (notification === "WebData") {
-			// console.log("WEBDatarecived", notification, payload);
-			// Remove WebHeader
-			const rawHTMLCode = payload.split("<tr><td>&nbsp;</td></tr>");
-			rawHTMLCode.shift();
+	/**
+	 * Adds a text of the yearly file as plain text. Words between slashes
+	 * introduce the quotation and are not part of it, e.g. "/Paulus
+	 * sprach:/". losungen.de shows them in normal weight before the bold
+	 * quotation, the module in the normal color before the bright one.
+	 * Words between hash signs are emphasized.
+	 * @param {HTMLElement} element The element of the text
+	 * @param {string} text The text with its marks
+	 * @param {string} clases The prefix of the class names
+	 */
+	_appendText(element, text, clases) {
+		for (const part of text.split(/(\/[^/]*\/)/)) {
+			if (part.length > 2 && part.startsWith("/") && part.endsWith("/")) {
+				let intro = document.createElement("span");
+				intro.classList.add(`${clases}-intro`, "normal");
+				intro.textContent = part.slice(1, -1);
+				element.appendChild(intro);
+				continue;
+			}
+			for (const piece of part.split(/(#[^#]*#)/)) {
+				if (piece.length > 2 && piece.startsWith("#") && piece.endsWith("#")) {
+					let emphasis = document.createElement("em");
+					emphasis.textContent = piece.slice(1, -1);
+					element.appendChild(emphasis);
+				} else if (piece)
+					element.appendChild(document.createTextNode(piece));
+			}
+		}
+	},
 
-			self.DailyVerse = this._getVerse(rawHTMLCode[0]);
-			self.DailyTeachingText = this._getVerse(rawHTMLCode[1]);
-			// console.log("daily", self.DailyVerse, self.DailyTeachingText)
+	socketNotificationReceived: function (notification, payload) {
+		let self = this;
+		// Ignore answers for another day, e.g. a request from before midnight
+		if (!payload || payload.date !== self.requestedDate)
+			return;
+
+		if (notification === "Error") {
+			console.error(self.name, "Error in helper Module", payload.reason);
+			if (payload.reason === "missing")
+				self._showError(`Die Losungen für ${payload.year} fehlen.`);
+			else if (payload.reason === "day")
+				self._showError("Für heute gibt es keine Losung.");
+			else
+				self._showError("Losung konnte nicht geladen werden.");
+		} else if (notification === "Losung") {
+			const nextYearMissing = payload.nextYearMissing || null;
+			if (self.loadedDate === payload.date && self.nextYearMissing === nextYearMissing)
+				return; // already shown
+			self.DailyVerse = payload.losung;
+			self.DailyTeachingText = payload.lehrtext;
+			self.nextYearMissing = nextYearMissing;
+			self.loadedDate = payload.date;
+			self.error = null;
+			self.updateDom();
 		} else {
 			console.error(self.name, "Undefined Function", payload);
 		}
@@ -127,32 +163,19 @@ Module.register("MMM-Losung", {
 	// #region private functions
 
 	/**
-	 * Calculate the day of the year
-	 * @param {*} date Acutal date
-	 * @returns
+	 * Shows an error unless the text of today is already loaded. Texts of
+	 * a previous day are removed, so they are not shown as today's texts.
+	 * @param {string} message The error message
 	 */
-	daysIntoYear: function (date) {
-		return (Date.UTC(date.getYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getYear(), 0, 0)) / 24 / 60 / 60 / 1000;
-	},
-
-	/**
-	 * Splits the raw HTML code to an array with the versetext and the verse
-	 * @param {*} rawHTMLVerse RawHTLM Verse
-	 * @returns
-	 */
-	_getVerse(rawHTMLVerse) {
-		const start = rawHTMLVerse.search("<b>") + 3;
-		const end = rawHTMLVerse.search("</font>");
-		// console.log("split", split)
-		let sliced = rawHTMLVerse.slice(start, end);
-		// console.log("sliced", sliced)
-
-		const verseSplited = sliced.split("</b>");
-		const dailyverse = verseSplited[0];
-		const verse = verseSplited[1].replace("<br>", "");
-		// console.log("dailyverse", dailyverse);
-		// console.log("verse", verse);
-		return [dailyverse, verse];
+	_showError: function (message) {
+		if (this.loadedDate === this.requestedDate || (this.loadedDate === null && this.error === message))
+			return;
+		this.DailyVerse = null;
+		this.DailyTeachingText = null;
+		this.nextYearMissing = null;
+		this.loadedDate = null;
+		this.error = message;
+		this.updateDom();
 	}
 
 	// #endregion

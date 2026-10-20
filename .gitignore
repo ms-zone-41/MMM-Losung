@@ -1,7 +1,5 @@
-# Losungen Free 2021.xml
-
+# The yearly files that the module downloads
 *.xml
-Losungen Free 2021.xml
 
 node_modules/
 package-lock.json

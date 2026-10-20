@@ -45,3 +45,8 @@
   text-align: end;
   margin: 0.25rem 0 0rem 0;
 }
+
+/* Space above the note about a missing next year */
+.MMM-Losung .moravian-warning {
+  margin-top: 10px;
+}
