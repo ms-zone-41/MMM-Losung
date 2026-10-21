@@ -1,6 +1,8 @@
 var NodeHelper = require("node_helper");
 const fs = require("node:fs/promises");
+const os = require("node:os");
 const path = require("node:path");
+const { readBible, versesFor } = require("./bible");
 const { clean, decodeFile, downloadYear, fileNameOf, parseLosungen } = require("./losungen-data");
 
 // A missing year is downloaded at most once an hour while its texts are
@@ -24,6 +26,7 @@ module.exports = NodeHelper.create({
 		this.unsaved = new Map();
 		this.readErrors = new Map();
 		this.downloads = new Map();
+		this.bible = this._loadBible();
 		this.timers = [
 			setTimeout(() => this._checkDownloads(), FIRST_CHECK_MS),
 			setInterval(() => this._checkDownloads(), CHECK_MS)
@@ -33,6 +36,33 @@ module.exports = NodeHelper.create({
 	stop: function () {
 		clearTimeout(this.timers[0]);
 		clearInterval(this.timers[1]);
+	},
+
+	// The Bible that the user bought as an EPUB, see README. The path is
+	// read from the configuration of MagicMirror, not from a browser.
+	async _loadBible() {
+		const entry = (globalThis.config?.modules ?? []).find((module) => !module.disabled && module.module === this.name && module.config?.bibleFile);
+		if (!entry) return null;
+		const file = String(entry.config.bibleFile).replace(/^~(?=\/)/, os.homedir());
+		try {
+			const bible = readBible(await fs.readFile(file));
+			console.log(`MMM-Losung: Showing the verses of the ${bible.name} from ${file}`);
+			return bible;
+		} catch (error) {
+			console.error(`MMM-Losung: ${file} cannot be used, so the texts of the Losungen are shown: ${clean(error.message)}`);
+			return null;
+		}
+	},
+
+	// The full verses of the user's Bible in place of the texts of the
+	// Losungen, as long as all verses of a reference are found
+	_translate(bible, day) {
+		const texts = {};
+		for (const [key, text] of Object.entries(day)) {
+			const verses = versesFor(bible, text.reference);
+			texts[key] = verses ? { ...text, text: verses } : text;
+		}
+		return texts;
 	},
 
 	/**
@@ -164,7 +194,8 @@ module.exports = NodeHelper.create({
 			if (!day) return this.sendSocketNotification("Error", { date, reason: "day" });
 			// In December the mirror warns when the next year is still missing
 			const nextYearMissing = date.slice(5, 7) === "12" && !(await this._getYear(year + 1, false)) ? year + 1 : null;
-			this.sendSocketNotification("Losung", { date, ...day, nextYearMissing });
+			const bible = await this.bible;
+			this.sendSocketNotification("Losung", { date, ...(bible ? this._translate(bible, day) : day), nextYearMissing });
 		} catch (error) {
 			console.error("MMM-Losung: " + error.message);
 			this.sendSocketNotification("Error", { date, reason: "failed" });

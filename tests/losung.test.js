@@ -10,7 +10,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { createRequire } = require("node:module");
 const { JSDOM } = require("jsdom");
-const { networkError, response, yearlyXml, zipOf } = require("./support");
+const { bibleEpub, networkError, response, yearlyXml, zipOf } = require("./support");
 
 const moduleDirectory = path.resolve(__dirname, "..");
 const dataDirectories = [];
@@ -21,7 +21,8 @@ const losungOf = (date, extra = {}) => ({ date, ...texts, nextYearMissing: null,
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const zipOfYear = (year, special) => zipOf([{ name: `Losungen Free ${year}.xml`, data: yearlyXml(year, special) }]);
 
-function loadHelper(fetch = async () => response(404)) {
+// config is the configuration of MagicMirror, which the helper reads for bibleFile
+function loadHelper(fetch = async () => response(404), config = undefined) {
 	const filename = path.join(moduleDirectory, "node_helper.js");
 	const localRequire = createRequire(filename);
 	const helperModule = { exports: {} };
@@ -61,11 +62,13 @@ function loadHelper(fetch = async () => response(404)) {
 			return timers.at(-1);
 		},
 		clearTimeout(timer) { timer.cleared = true; },
-		clearInterval(timer) { timer.cleared = true; }
+		clearInterval(timer) { timer.cleared = true; },
+		config
 	});
 	const notifications = [];
 	const helper = helperModule.exports;
 	helper.sendSocketNotification = (type, payload) => notifications.push({ type, payload });
+	helper.name = "MMM-Losung";
 	helper.start();
 	logs.length = 0;
 	// Every test gets its own folder for the yearly files
@@ -92,6 +95,61 @@ test("helper answers with the texts of the day from the yearly file", async () =
 			nextYearMissing: null
 		}
 	}]);
+});
+
+// An EPUB with made-up verses, e.g. 1. Mose 3,15 = "Vers 3,15."
+function writeBible(directory = fs.mkdtempSync(path.join(os.tmpdir(), "mmm-losung-bible-"))) {
+	dataDirectories.push(directory);
+	fs.writeFileSync(path.join(directory, "bibel.epub"), bibleEpub());
+	return path.join(directory, "bibel.epub");
+}
+
+test("helper shows the full verses of the Bible of the user", async () => {
+	const bibleFile = writeBible();
+	const { helper, notifications, logs, writeYear } = loadHelper(undefined, { modules: [{ module: "MMM-Losung", config: { bibleFile } }] });
+	writeYear(2026, yearlyXml(2026, { "2026-10-20": { Losungsvers: "1. Mose 3,15" } }));
+	await helper._sendLosung("2026-10-20");
+	assert.deepEqual(plain(notifications[0].payload), {
+		date: "2026-10-20",
+		losung: { text: "Vers 3,15.", reference: "1. Mose 3,15" },
+		// A verse that is not in the Bible keeps the text of the Losungen
+		lehrtext: { text: "Lehrtext 2026-10-20", reference: "Matthäus 1,1" },
+		nextYearMissing: null
+	});
+	assert.match(logs.find(([level]) => level === "log")[1], /Showing the verses of the Testbibel/);
+});
+
+test("helper finds the Bible in the home folder", async () => {
+	const home = process.env.HOME;
+	process.env.HOME = path.dirname(writeBible());
+	try {
+		const { helper, notifications, writeYear } = loadHelper(undefined, { modules: [{ module: "MMM-Losung", config: { bibleFile: "~/bibel.epub" } }] });
+		writeYear(2026, yearlyXml(2026, { "2026-10-20": { Losungsvers: "1. Mose 3,15" } }));
+		await helper._sendLosung("2026-10-20");
+		assert.equal(notifications[0].payload.losung.text, "Vers 3,15.");
+	} finally {
+		process.env.HOME = home;
+	}
+});
+
+test("helper shows the texts of the Losungen when the Bible cannot be read", async () => {
+	const notABible = path.join(path.dirname(writeBible()), "roman.epub");
+	fs.writeFileSync(notABible, "Kein E-Book");
+	for (const bibleFile of ["/nicht/da/bibel.epub", notABible]) {
+		const { helper, notifications, logs, writeYear } = loadHelper(undefined, { modules: [{ module: "MMM-Losung", config: { bibleFile } }] });
+		writeYear(2026, yearlyXml(2026, { "2026-10-20": { Losungsvers: "1. Mose 3,15" } }));
+		await helper._sendLosung("2026-10-20");
+		assert.deepEqual(plain(notifications[0].payload.losung), { text: "Losung 2026-10-20", reference: "1. Mose 3,15" }, bibleFile);
+		assert.match(logs.find(([level]) => level === "error")[1], /cannot be used, so the texts of the Losungen are shown/);
+	}
+});
+
+test("helper ignores the Bible of a disabled entry", async () => {
+	const bibleFile = writeBible();
+	const { helper, notifications, writeYear } = loadHelper(undefined, { modules: [{ module: "MMM-Losung", disabled: true, config: { bibleFile } }, { module: "MMM-Losung", config: {} }] });
+	writeYear(2026, yearlyXml(2026, { "2026-10-20": { Losungsvers: "1. Mose 3,15" } }));
+	await helper._sendLosung("2026-10-20");
+	assert.equal(notifications[0].payload.losung.text, "Losung 2026-10-20");
 });
 
 test("helper downloads a missing year once for several requests", async () => {

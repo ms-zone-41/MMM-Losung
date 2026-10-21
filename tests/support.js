@@ -95,6 +95,30 @@ function response(status, body = "", headers = {}) {
 }
 
 /**
+ * An EPUB in the format of the Deutsche Bibelgesellschaft with made-up
+ * verses: enough filler verses to count as a complete Bible, plus books
+ * given as markup.
+ * @param {object} books The markup of books by file name, e.g. "exo_8"
+ * @param {string} title The title of the book
+ * @returns {Buffer} The EPUB
+ */
+function bibleEpub(books = {}, title = "Testbibel. Erfundene Verse für die Tests") {
+	const page = (body) => `<?xml version="1.0" encoding="UTF-8"?>\n<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Buch</title></head><body><div class="body"><div class="bc">\n${body}\n</div></div></body></html>`;
+	const filler = [];
+	for (let chapter = 1; chapter <= 700; chapter++) {
+		filler.push(`<div id="cref-${chapter}" class="bcn"><a href="#top"><span class="cb">Filler </span>${chapter}</a></div><p class="m">`);
+		for (let verse = 1; verse <= 30; verse++) filler.push(`<span class="bvn"><a href="#cref-${chapter}">${verse}</a></span> Vers ${chapter},${verse}.`);
+		filler.push("</p>");
+	}
+	return zipOf([
+		{ name: "mimetype", data: "application/epub+zip", store: true },
+		{ name: "OPS/content.opf", data: `<package><metadata><dc:title>${title}</dc:title></metadata></package>` },
+		{ name: "OPS/gen_1.xhtml", data: page(filler.join("")) },
+		...Object.entries(books).map(([file, body]) => ({ name: `OPS/${file}.xhtml`, data: page(body) }))
+	]);
+}
+
+/**
  * The error of fetch for a server that cannot be reached.
  * @returns {TypeError} The error
  */
@@ -102,4 +126,4 @@ function networkError() {
 	return Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
 }
 
-module.exports = { networkError, response, yearlyXml, zipOf };
+module.exports = { bibleEpub, networkError, response, yearlyXml, zipOf };

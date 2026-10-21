@@ -82,10 +82,25 @@ function parseLosungen(xml, year) {
  * @returns {Buffer} The XML file
  */
 function xmlFromZip(zip) {
+	const [xml] = filesFromZip(zip, (name) => /\.xml$/i.test(name)).values();
+	if (!xml) throw new Error("No XML file in the zip file");
+	return xml;
+}
+
+/**
+ * Extracts the files whose names are wanted from a zip file, e.g. the
+ * yearly file or an EPUB. Only stored and deflated entries without ZIP64
+ * are supported, which is what the publishers use.
+ * @param {Buffer} zip The zip file
+ * @param {function(string): boolean} wanted Whether a file name is wanted
+ * @returns {Map<string, Buffer>} The files by name
+ */
+function filesFromZip(zip, wanted) {
 	const end = zip.lastIndexOf(Buffer.from("PK\x05\x06", "latin1"));
 	if (end < 0 || end + 22 > zip.length) throw new Error("Not a zip file");
 	const count = zip.readUInt16LE(end + 10);
 	let offset = zip.readUInt32LE(end + 16);
+	const files = new Map();
 	for (let index = 0; index < count; index++) {
 		if (zip.readUInt32LE(offset) !== 0x02014b50) throw new Error("Damaged zip file");
 		const method = zip.readUInt16LE(offset + 10);
@@ -96,21 +111,21 @@ function xmlFromZip(zip) {
 		const localHeader = zip.readUInt32LE(offset + 42);
 		const name = zip.toString("utf8", offset + 46, offset + 46 + nameLength);
 		offset += 46 + nameLength + zip.readUInt16LE(offset + 30) + zip.readUInt16LE(offset + 32);
-		if (!/\.xml$/i.test(name)) continue;
+		if (!wanted(name)) continue;
 
 		if (size > MAX_XML_BYTES) throw new Error(`${excerpt(name)} is too large`);
 		if (zip.readUInt32LE(localHeader) !== 0x04034b50) throw new Error("Damaged zip file");
 		const start = localHeader + 30 + zip.readUInt16LE(localHeader + 26) + zip.readUInt16LE(localHeader + 28);
 		const data = zip.subarray(start, start + compressedSize);
 		if (data.length !== compressedSize) throw new Error("Damaged zip file");
-		let xml;
-		if (method === 0) xml = data;
-		else if (method === 8) xml = zlib.inflateRawSync(data, { maxOutputLength: MAX_XML_BYTES });
+		let file;
+		if (method === 0) file = data;
+		else if (method === 8) file = zlib.inflateRawSync(data, { maxOutputLength: MAX_XML_BYTES });
 		else throw new Error(`Unsupported compression of ${excerpt(name)}`);
-		if (xml.length !== size || zlib.crc32(xml) !== crc) throw new Error("Damaged zip file");
-		return xml;
+		if (file.length !== size || zlib.crc32(file) !== crc) throw new Error("Damaged zip file");
+		files.set(name, file);
 	}
-	throw new Error("No XML file in the zip file");
+	return files;
 }
 
 function describe(error) {
@@ -186,4 +201,4 @@ async function downloadYear(year, { fetch = globalThis.fetch, urls = DOWNLOAD_UR
 	throw error;
 }
 
-module.exports = { DOWNLOAD_URLS, clean, decodeFile, downloadYear, fileNameOf, parseLosungen, xmlFromZip };
+module.exports = { DOWNLOAD_URLS, clean, decodeEntities, decodeFile, downloadYear, fileNameOf, filesFromZip, parseLosungen, xmlFromZip };

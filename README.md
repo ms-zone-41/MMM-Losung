@@ -38,6 +38,7 @@ To use this module, add the following configuration block to the modules array i
 | `updateInterval` | *Optional* - How often (in ms) the module checks for the text of the current day, so the new text appears at the latest this long after midnight. Default: `600000` (10 minutes). The texts come from a file on the mirror; a check uses the network only while the file of the year is missing or broken, at most once an hour.
 | `showDailyText` | *Optional* - Show daily bible verse
 | `showTeachingText` |  *Optional* - Show additional teaching text
+| `bibleFile` | *Optional* - The path to a Bible that you bought as an EPUB from the Deutsche Bibelgesellschaft, for example `"~/bibel/basisbibel.epub"`. The module then shows its verses instead of the texts of the Losungen, see [Another translation](#another-translation). `~/` is your home folder.
 
 The terms of use of the publisher say that the Losung and the Lehrtext are always shown together.
 
@@ -53,6 +54,15 @@ The publisher offers the texts of a year as the file `Losungen Free YYYY.xml`, f
 Without internet access, or if no download works, download `Losung_YYYY_XML.zip` from https://www.losungen.de/download/ yourself and put `Losungen Free YYYY.xml` from it into the folder of the module. The module uses it at the next check, within `updateInterval` and without a restart. A broken file is replaced by a download.
 
 The terms of use allow only the texts of the previous, current and next year. So the files are not part of the repository, and once a day the module deletes the files of older years.
+
+## Another translation
+
+With `bibleFile`, the module shows the referenced verses from your own copy of a Bible of the Deutsche Bibelgesellschaft, for example "BasisBibel. Die Kompakte. eBook im ePUB-Format" from its shop.
+
+- The Losungen often quote only part of a verse, and they add introductions such as "Paulus sprach:". The module shows the full verses instead, so the texts are longer, and they can begin or end in the middle of a sentence.
+- If a verse of a reference is not in the file, the module shows the text of the Losungen for it.
+- The e-book is personalised and for your own use. Keep it outside the MagicMirror folder, because MagicMirror serves that folder to the network. Do not commit or share it.
+- The terms of use of the Losungen allow only their unchanged texts in publications, so use this only on a mirror for yourself.
 
 ## Development
 
