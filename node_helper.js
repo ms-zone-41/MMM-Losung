@@ -7,11 +7,6 @@ module.exports = NodeHelper.create({
         console.log('MMM-Losung helper started ...');
     },
 
-    _openFile: function (filename) {
-        var self = this;
-
-    },
-
     async _getWebData(webURL) {
         var self = this;
         const url = webURL;
@@ -29,7 +24,5 @@ module.exports = NodeHelper.create({
         if (notification === 'GetDataFromWeb'){
             this._getWebData(payload);
         }
-        else
-            self.sendSocketNotification('Error', 'File not opend');
     }
 });

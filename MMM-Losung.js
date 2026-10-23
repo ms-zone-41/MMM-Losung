@@ -158,7 +158,6 @@ Module.register("MMM-Losung",
             let sliced = rawHTMLVerse.slice(start, end);
             // console.log("sliced", sliced)
 
-            const verseEnd = sliced.search("</b>");
             const verseSplited = sliced.split("</b>");
             const dailyverse = verseSplited[0];
             const verse = verseSplited[1].replace("<br>", "")
