@@ -108,6 +108,10 @@ node --run lint
 
 GitHub runs both for every push and pull request.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 ISC, see [LICENSE](LICENSE). [Dobherrmann](https://github.com/Dobherrmann/MMM-Losung) wrote the module, which this fork continues.

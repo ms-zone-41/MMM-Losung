@@ -1,7 +1,7 @@
 {
   "name": "mmm-losung",
   "description": "A MagicMirror² module that shows the Losung and the Lehrtext of the day from Die Losungen, the daily Bible texts of the Herrnhuter Brüdergemeine.",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "main": "MMM-Losung.js",
   "scripts": {
