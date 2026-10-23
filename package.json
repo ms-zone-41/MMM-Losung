@@ -1,6 +1,6 @@
 {
   "name": "mmm-losung",
-  "description": "This is a module for the [MagicMirror²](https://github.com/MichMich/MagicMirror/). It will display the daily verse of the day from  www.losungen.de (direct link: https://www.losungen.de/download/). You have to download the *.xml file from their website and place that *.xml file in the root folder of the module.",
+  "description": "A MagicMirror² module that shows the Losung and the Lehrtext of the day from Die Losungen, the daily Bible texts of the Herrnhuter Brüdergemeine.",
   "version": "1.0.0",
   "private": true,
   "main": "MMM-Losung.js",
@@ -10,14 +10,23 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Dobherrmann/MMM-Losung.git"
+    "url": "git+https://github.com/ms-zone-41/MMM-Losung.git"
   },
+  "keywords": [
+    "magicmirror",
+    "magicmirror2",
+    "losungen",
+    "herrnhut",
+    "bible",
+    "religion",
+    "german"
+  ],
   "author": "Dobherrmann",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Dobherrmann/MMM-Losung/issues"
+    "url": "https://github.com/ms-zone-41/MMM-Losung/issues"
   },
-  "homepage": "https://github.com/Dobherrmann/MMM-Losung#readme",
+  "homepage": "https://github.com/ms-zone-41/MMM-Losung#readme",
   "type": "commonjs",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
