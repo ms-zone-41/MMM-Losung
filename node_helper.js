@@ -1,4 +1,5 @@
 var NodeHelper = require("node_helper");
+const Log = require("logger");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
@@ -16,7 +17,7 @@ const FILE_PATTERN = /^Losungen Free (\d{4})(\.part)?\.xml$/;
 
 module.exports = NodeHelper.create({
 	start: function () {
-		console.log("MMM-Losung helper started ...");
+		Log.log(`Starting node helper for: ${this.name}`);
 		// The yearly files are kept next to the module, where they can also
 		// be put by hand
 		this.dataDirectory = __dirname;
@@ -46,10 +47,10 @@ module.exports = NodeHelper.create({
 		const file = String(entry.config.bibleFile).replace(/^~(?=\/)/, os.homedir());
 		try {
 			const bible = readBible(await fs.readFile(file));
-			console.log(`MMM-Losung: Showing the verses of the ${bible.name} from ${file}`);
+			Log.log(`Showing the verses of the ${bible.name} from ${file}`);
 			return bible;
 		} catch (error) {
-			console.error(`MMM-Losung: ${file} cannot be used, so the texts of the Losungen are shown: ${clean(error.message)}`);
+			Log.error(`${file} cannot be used, so the texts of the Losungen are shown: ${clean(error.message)}`);
 			return null;
 		}
 	},
@@ -92,7 +93,7 @@ module.exports = NodeHelper.create({
 			// same error is logged only once
 			const readError = `${version}/${error.code}`;
 			if (this.readErrors.get(year) !== readError)
-				console.error(`MMM-Losung: ${fileNameOf(year)} cannot be read: ${error.message}`);
+				Log.error(`${fileNameOf(year)} cannot be read: ${error.message}`);
 			this.readErrors.set(year, readError);
 			return this.unsaved.get(year) || null;
 		}
@@ -101,7 +102,7 @@ module.exports = NodeHelper.create({
 		try {
 			days = parseLosungen(decodeFile(bytes), year);
 		} catch (error) {
-			console.error(`MMM-Losung: ${fileNameOf(year)} cannot be used: ${clean(error.message)}`);
+			Log.error(`${fileNameOf(year)} cannot be used: ${clean(error.message)}`);
 		}
 		this.years.set(year, { version, days });
 		return days || this.unsaved.get(year) || null;
@@ -129,14 +130,14 @@ module.exports = NodeHelper.create({
 		const running = (async () => {
 			try {
 				const { xml, days, url } = await downloadYear(year, { fetch: this.fetch });
-				console.log(`MMM-Losung: Downloaded the Losungen of ${year} from ${url}`);
+				Log.log(`Downloaded the Losungen of ${year} from ${url}`);
 				await this._save(year, xml, days);
 			} catch (error) {
 				// In autumn the next year is usually not out yet
 				if (error.notPublished && year > new Date(Date.now()).getFullYear())
-					console.log(`MMM-Losung: The Losungen of ${year} are not online yet: ${error.message}`);
+					Log.log(`The Losungen of ${year} are not online yet: ${error.message}`);
 				else
-					console.error(`MMM-Losung: ${error.message}`);
+					Log.error(error.message);
 			} finally {
 				this.downloads.set(year, { lastAttempt: Date.now() });
 			}
@@ -156,7 +157,7 @@ module.exports = NodeHelper.create({
 		} catch (error) {
 			await fs.rm(partFile, { force: true }).catch(() => {});
 			this.unsaved.set(year, days);
-			console.error(`MMM-Losung: ${fileNameOf(year)} cannot be saved, so the texts are only kept until MagicMirror restarts. The user of MagicMirror needs write access to ${this.dataDirectory}: ${error.message}`);
+			Log.error(`${fileNameOf(year)} cannot be saved, so the texts are only kept until MagicMirror restarts. The user of MagicMirror needs write access to ${this.dataDirectory}: ${error.message}`);
 		}
 		// Read again even if the time of the file did not change
 		this.years.delete(year);
@@ -173,10 +174,10 @@ module.exports = NodeHelper.create({
 				const match = FILE_PATTERN.exec(name);
 				if (!match || Number(match[1]) >= year - 1) continue;
 				await fs.rm(path.join(this.dataDirectory, name), { force: true });
-				console.log(`MMM-Losung: Deleted ${name}, the terms of use allow only the previous, current and next year`);
+				Log.log(`Deleted ${name}, the terms of use allow only the previous, current and next year`);
 			}
 		} catch (error) {
-			console.error(`MMM-Losung: Old yearly files cannot be deleted: ${error.message}`);
+			Log.error(`Old yearly files cannot be deleted: ${error.message}`);
 		}
 		const years = now.getMonth() >= 9 ? [year, year + 1] : [year];
 		await Promise.all(years.map((each) => this._getYear(each)));
@@ -197,14 +198,14 @@ module.exports = NodeHelper.create({
 			const bible = await this.bible;
 			this.sendSocketNotification("Losung", { date, ...(bible ? this._translate(bible, day) : day), nextYearMissing });
 		} catch (error) {
-			console.error("MMM-Losung: " + error.message);
+			Log.error(error.message);
 			this.sendSocketNotification("Error", { date, reason: "failed" });
 		}
 	},
 
 	socketNotificationReceived: function (notification, payload) {
 		if (notification === "GetLosung") {
-			this._sendLosung(payload && payload.date).catch((error) => console.error("MMM-Losung: " + error.message));
+			this._sendLosung(payload && payload.date).catch((error) => Log.error(error.message));
 		}
 	}
 });

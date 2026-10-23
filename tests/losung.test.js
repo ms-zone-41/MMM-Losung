@@ -33,6 +33,15 @@ function loadHelper(fetch = async () => response(404), config = undefined) {
 	};
 	FakeDate.current = Date.parse("2026-10-20T08:00:00");
 	const logs = [];
+	// The logger of MagicMirror²
+	const logger = {
+		log(message) {
+			logs.push(["log", message]);
+		},
+		error(message) {
+			logs.push(["error", message]);
+		}
+	};
 	const timers = [];
 	// The file functions of the helper, which a test can replace
 	const files = { ...fs.promises };
@@ -41,16 +50,9 @@ function loadHelper(fetch = async () => response(404), config = undefined) {
 		__dirname: moduleDirectory,
 		require(name) {
 			if (name === "node_helper") return { create: (definition) => definition };
+			if (name === "logger") return logger;
 			if (name === "node:fs/promises") return files;
 			return localRequire(name);
-		},
-		console: {
-			log(message) {
-				logs.push(["log", message]);
-			},
-			error(message) {
-				logs.push(["error", message]);
-			}
 		},
 		Date: FakeDate,
 		setTimeout(callback, ms) {
@@ -186,12 +188,9 @@ test("helper logs the reasons when the current year is missing, but only notes a
 	const { helper, logs } = loadHelper(async (url) => (url.includes("www.brueder-unitaet.de") ? Promise.reject(networkError()) : response(404)));
 	await helper._sendLosung("2026-10-20");
 	await helper._checkDownloads(new Date(2026, 9, 20));
-	assert.deepEqual(logs.map(([level, message]) => [level, message.replace(/:.*/, "")]), [
-		["error", "MMM-Losung"],
-		["log", "MMM-Losung"]
-	]);
-	assert.match(logs[0][1], /Losungen of 2026 could not be downloaded \(.*HTTP 404.*ECONNREFUSED\)/);
-	assert.match(logs[1][1], /Losungen of 2027 are not online yet: .*HTTP 404/);
+	assert.deepEqual(logs.map(([level]) => level), ["error", "log"]);
+	assert.match(logs[0][1], /^The Losungen of 2026 could not be downloaded \(.*HTTP 404.*ECONNREFUSED\)/);
+	assert.match(logs[1][1], /^The Losungen of 2027 are not online yet: .*HTTP 404/);
 });
 
 test("helper uses a file that was put in by hand at once", async () => {
