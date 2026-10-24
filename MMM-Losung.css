@@ -9,6 +9,12 @@
   margin-top: 10px;
 }
 
+/* A reference is not broken across lines, also where compact puts it at the end of its text */
+.MMM-Losung .moravian-vers,
+.MMM-Losung .teaching-vers {
+  white-space: nowrap;
+}
+
 /* Space above the note about a missing next year */
 .MMM-Losung .moravian-warning {
   margin-top: 10px;

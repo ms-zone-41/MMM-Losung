@@ -57,13 +57,14 @@ Add the module to the `modules` array in `config/config.js`:
 | `updateInterval` | How often the module checks for the texts of the day, in milliseconds. New texts appear at the latest this long after midnight. | `600000` (10 minutes) |
 | `showDailyText` | Show the Losung. | `true` |
 | `showTeachingText` | Show the Lehrtext. | `true` |
+| `compact` | Show each reference at the end of its text, with the book in the short form of the Lutherbibel 2017, e.g. "Ps 23,1" instead of "Psalm 23,1" on a line of its own. The Lutherbibel keeps a few names whole, e.g. "1. Mose". This usually saves a line for each text. | `false` |
 | `bibleFile` | The path to a Bible that you bought as an EPUB, see [Your own Bible](#your-own-bible). `~/` is your home directory. | None |
 
-The terms of use require the Losung and the Lehrtext together, so leave both on.
+The terms of use require the Losung and the Lehrtext together, so leave both on. They do not allow changed references in publications, so use `compact` only on a mirror for yourself.
 
 ## The texts and their terms of use
 
-Die Losungen are published by the Evangelische Brüder-Unität – Herrnhuter Brüdergemeine. It offers the texts of each year as `Losungen Free YYYY.xml` on [losungen.de/download](https://www.losungen.de/download/) for free programs, under its [terms of use](https://www.losungen.de/digital/nutzungsbedingungen): the texts must not be changed, the Losung and the Lehrtext are always shown together, and only the texts of the previous, current and next year may be provided. So the file is not part of this repository, and the module gets it itself:
+Die Losungen are published by the Evangelische Brüder-Unität – Herrnhuter Brüdergemeine. It offers the texts of each year as `Losungen Free YYYY.xml` on [losungen.de/download](https://www.losungen.de/download/) for free programs, under its [terms of use](https://www.losungen.de/digital/nutzungsbedingungen): the texts and their references must not be changed, the Losung and the Lehrtext are always shown together, and only the texts of the previous, current and next year may be provided. So the file is not part of this repository, and the module gets it itself:
 
 - If the file of the current year is missing, the module downloads it, at most once an hour. From October on, it looks once a day for the file of the next year, which the publisher puts online in autumn.
 - It downloads from www.ebu.de or, if that fails, from www.brueder-unitaet.de. Both belong to the publisher and serve the same file.

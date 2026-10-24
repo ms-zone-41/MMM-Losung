@@ -10,6 +10,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { createRequire } = require("node:module");
 const { JSDOM } = require("jsdom");
+const { BOOKS } = require("../bible");
 const { bibleEpub, networkError, response, yearlyXml, zipOf } = require("./support");
 
 const moduleDirectory = path.resolve(__dirname, "..");
@@ -501,6 +502,26 @@ test("frontend shows the texts bright and light, the references in the normal co
 	// No labels such as "Losung:", the header of the module names it
 	assert.equal(dom.querySelector(".moravian-header"), null);
 	assert.equal(dom.querySelector("[style]"), null);
+});
+
+test("frontend shows the short form of each reference at the end of its text with compact", () => {
+	const { frontend } = loadFrontend(undefined, { compact: true });
+	const losung = { text: "Ein erfundener Satz.", reference: "1. Korinther 13,4" };
+	const lehrtext = { text: "/Paulus sprach:/ Ein #anderer# Satz.", reference: "Apostelgeschichte 2,5.7-8" };
+	frontend.socketNotificationReceived("Losung", losungOf("2026-10-03", { losung, lehrtext }));
+	const dom = frontend.getDom();
+	// No line of its own for the references
+	assert.deepEqual([...dom.children].map((element) => [...element.children].map((child) => child.className)), [["moravian-text bright"], ["teaching-text bright"]]);
+	assert.deepEqual([...dom.querySelectorAll(".bright")].map((element) => element.textContent), ["Ein erfundener Satz.\u00a01. Kor 13,4", "Paulus sprach: Ein anderer Satz.\u00a0Apg 2,5.7-8"]);
+	assert.deepEqual([...dom.querySelectorAll(".moravian-vers, .teaching-vers")].map((element) => [element.tagName, element.className]), [["SPAN", "moravian-vers normal"], ["SPAN", "teaching-vers normal"]]);
+});
+
+test("frontend knows a short form for every book of the Losungen and keeps other references", () => {
+	const { frontend } = loadFrontend(undefined, { compact: true });
+	assert.deepEqual(Object.keys(frontend.shortBookNames), Object.keys(BOOKS));
+	assert.equal(new Set(Object.values(frontend.shortBookNames)).size, Object.keys(BOOKS).length);
+	for (const reference of ["Matthaeus 1,1", "Psalm 23", "Jesaja 40,31; Psalm 23,1", "toString 1,1"])
+		assert.equal(frontend._shortReference(reference), reference);
 });
 
 test("frontend shows the introduction of a quotation in the normal color and keeps emphasis", () => {

@@ -115,4 +115,4 @@ function versesFor(bible, reference) {
 	return texts.length ? texts.join(" ") : null;
 }
 
-module.exports = { readBible, versesFor };
+module.exports = { BOOKS, readBible, versesFor };

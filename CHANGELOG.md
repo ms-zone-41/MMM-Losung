@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `compact`: each reference at the end of its text, with the book in the short form of the Lutherbibel 2017, e.g. "Ps 23,1", which usually saves a line for each text
+
 ## [2.0.0] - 2026-10-23
 
 The first release of the fork [ms-zone-41/MMM-Losung](https://github.com/ms-zone-41/MMM-Losung), which continues [Dobherrmann/MMM-Losung](https://github.com/Dobherrmann/MMM-Losung). The options stay the same; to switch, see [Update](README.md#update).
